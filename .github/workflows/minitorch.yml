@@ -1,0 +1,50 @@
+name: MiniTorch modules 0-3
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.10'
+            requirements: requirements.txt
+          - python: '3.11'
+            requirements: requirements-py311.txt
+    env:
+      NUMBA_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -r ${{ matrix.requirements }}
+      - run: pip install -e . --no-deps
+      - name: Modules 0, 1, 2 and CPU module 3
+        run: python -m pytest tests -q --junitxml=results-cpu.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cpu-results-${{ matrix.python }}
+          path: results-cpu.xml
+  cuda-simulator:
+    runs-on: ubuntu-latest
+    env:
+      NUMBA_ENABLE_CUDASIM: '1'
+      NUMBA_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-py311.txt
+      - run: pip install -e . --no-deps
+      - name: Module 3 CUDA kernels in simulator
+        run: python -m pytest tests/test_cuda_smoke.py -q --junitxml=results-cuda.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cuda-simulator-results
+          path: results-cuda.xml
